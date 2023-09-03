@@ -1,0 +1,362 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:hl7="http://www.mulesoft.org/schema/mule/hl7"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/hl7 http://www.mulesoft.org/schema/mule/hl7/current/mule-hl7.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="68e59d15-7c3a-49f7-b9f2-f8d72d5ebeab" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<hl7:config name="HL7_EDI_Config" doc:name="HL7 EDI Config" doc:id="96a0f368-a482-4ee6-a514-b4f11a8f5ef9" parserSegmentTerminator="LF">
+		<hl7:schemas >
+			<hl7:schema value="#['/hl7lax/v2_3/ORM_O01.esl']" />
+		</hl7:schemas>
+	</hl7:config>
+	<flow name="read-hl7-message" doc:id="fc722f87-4b44-4893-b086-592b2e33b638" >
+		<http:listener doc:name="Listener" doc:id="b88fd563-0f6a-4016-9d35-ddffbde8af40" config-ref="HTTP_Listener_config" path="hl7order-read"/>
+		<logger level="INFO" doc:name="Logger" doc:id="a9f37678-572e-4f2f-a1aa-ba84bf9ff264" message="start hl7 parse"/>
+		<ee:transform doc:name="set-hl7-orm" doc:id="ed155976-6dac-45e6-a600-fbf9006e02d0" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+"MSH|^~\&|MESA_OP|XYZ_HOSPITAL|iFW|ABC_RADIOLOGY|||ORM^O01|101104|P|2.3||||||||
+PID|1||20891312^^^^EPI||APPLESEED^JOHN^A^^MR.^||19661201|M||AfrAm|505 S. HAMILTON AVE^^MADISON^WI^53505^US^^^DN |DN|(608)123-4567|(608)123-5678||S|| 11480003|123-45-7890||||^^^WI^^
+PD1|||FACILITY(EAST)^^12345|1173^MATTHEWS^JAMES^A^^^
+PV1|||^^^CARE HEALTH SYSTEMS^^^^^||| |1173^MATTHEWS^JAMES^A^^^||||||||||||610613||||||||||||||||||||||||||||||||V
+ORC|NW|987654^EPIC|76543^EPC||Final||^^^20140418170014^^^^||20140418173314|1148^PATTERSON^JAMES^^^^||1173^MATTHEWS^JAMES^A^^^|1133^^^222^^^^^|(618)222-1122||
+OBR|1|363463^EPC|1858^EPC|73610^X-RAY ANKLE 3+ VW^^^X-RAY ANKLE ||||||||||||1173^MATTHEWS^JAMES^A^^^|(608)258-
+8866||||||||Final||^^^20140418170014^^^^|||||6064^MANSFIELD^JEREMY^^^^||1148010^1A^EAST^X-RAY^^^|^|
+DG1||I10|S82^ANKLE FRACTURE^I10|ANKLE FRACTURE||"]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<hl7:read doc:name="Read" doc:id="10327472-cc8d-49cc-8279-2b2bfd36e07f" config-ref="HL7_EDI_Config"/>
+		<ee:transform doc:name="to json" doc:id="8c50f051-e45a-4b0c-ad3d-cf19d517d2eb" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="1acc173a-ae01-4bdd-98c0-e4dfa6d3d9b9" message="hl7 in json format :#[payload]"/>
+	</flow>
+		<flow name="write-hl7message" doc:id="1e2c318e-5a3b-4dde-a870-211beba01807" >
+		<http:listener doc:name="Listener" doc:id="0719e37c-f0ad-4f6f-ba2d-3d15f9edd6b2" config-ref="HTTP_Listener_config" path="hl7order-write"/>
+		<logger level="INFO" doc:name="Logger" doc:id="c79b7be6-64b4-4c51-b67e-3d59fae53ce8" message="start hl7 parse"/>
+		<ee:transform doc:name="set-hl7-orm-json" doc:id="d0e5ccb3-d1c6-4100-8f59-bdf92b3a1803" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+  "Errors": [
+    {
+      "errorType": {
+        
+      },
+      "errorCode": "100",
+      "fatal": false,
+      "errorText": "unknown segment",
+      "segment": 7
+    }
+  ],
+  "Delimiters": "|^~\\&",
+  "MSH": {
+    "MSH-10": "101104",
+    "MSH-11": {
+      "PT-01": "P"
+    },
+    "MSH-12": "2.3",
+    "MSH-03": {
+      "HD-01": "MESA_OP"
+    },
+    "MSH-04": {
+      "HD-01": "XYZ_HOSPITAL"
+    },
+    "MSH-05": {
+      "HD-01": "iFW"
+    },
+    "MSH-06": {
+      "HD-01": "ABC_RADIOLOGY"
+    },
+    "MSH-09": {
+      "CM_MSG-02": "O01",
+      "CM_MSG-01": "ORM"
+    }
+  },
+  "ACK": {
+    "MSH": {
+      "MSH-10": "101104",
+      "MSH-11": {
+        "PT-01": "P"
+      },
+      "MSH-12": "2.3",
+      "MSH-03": {
+        "HD-01": "iFW"
+      },
+      "MSH-04": {
+        "HD-01": "ABC_RADIOLOGY"
+      },
+      "MSH-05": {
+        "HD-01": "MESA_OP"
+      },
+      "MSH-06": {
+        "HD-01": "XYZ_HOSPITAL"
+      },
+      "MSH-09": {
+        "CM_MSG-02": "O01",
+        "MSG-03": "ACK",
+        "CM_MSG-01": "ACK"
+      }
+    },
+    "ERR": [
+      {
+        "ERR-01": [
+          {
+            "ELD-04": {
+              "CE-01": "100",
+              "CE-02": "Segment sequence error",
+              "CE-03": "HL70357"
+            },
+            "ELD-01": "8866",
+            "ELD-02": 1
+          }
+        ]
+      }
+    ],
+    "MSA": {
+      "MSA-02": "101104",
+      "MSA-01": "AE"
+    }
+  },
+  "Data": {
+    "ORM_O01": {
+      "ORDER": [
+        {
+          "ORC": {
+            "ORC-03": {
+              "EI-01": "76543",
+              "EI-02": "EPC"
+            },
+            "ORC-14": [
+              "(618)222-1122"
+            ],
+            "ORC-05": "Final",
+            "ORC-07": {
+              "TQ-04": {
+                "TS-01": "20140418170014"
+              }
+            },
+            "ORC-09": {
+              "TS-01": "20140418173314"
+            },
+            "ORC-10": {
+              "XCN-02": "PATTERSON",
+              "XCN-03": "JAMES",
+              "XCN-01": "1148"
+            },
+            "ORC-02": [
+              {
+                "EI-01": "987654",
+                "EI-02": "EPIC"
+              }
+            ],
+            "ORC-13": {
+              "PL-01": "1133",
+              "PL-04": {
+                "HD-01": "222"
+              }
+            },
+            "ORC-01": "NW",
+            "ORC-12": [
+              {
+                "XCN-04": "A",
+                "XCN-02": "MATTHEWS",
+                "XCN-03": "JAMES",
+                "XCN-01": "1173"
+              }
+            ]
+          },
+          "ORDER_DETAIL": {
+            "CHOICE": [
+              {
+                "OBR": {
+                  "OBR-17": [
+                    {
+                      "XTN-01": "(608)258-"
+                    }
+                  ],
+                  "OBR-04": {
+                    "CE-05": "X-RAY ANKLE",
+                    "CE-01": "73610",
+                    "CE-02": "X-RAY ANKLE 3+ VW"
+                  },
+                  "OBR-16": [
+                    {
+                      "XCN-04": "A",
+                      "XCN-02": "MATTHEWS",
+                      "XCN-03": "JAMES",
+                      "XCN-01": "1173"
+                    }
+                  ],
+                  "OBR-02": {
+                    "EI-01": "363463",
+                    "EI-02": "EPC"
+                  },
+                  "OBR-03": {
+                    "EI-01": "1858",
+                    "EI-02": "EPC"
+                  },
+                  "OBR-01": "1"
+                }
+              }
+            ],
+            "DG1": [
+              {
+                "DG1-02": "I10",
+                "DG1-04": "ANKLE FRACTURE",
+                "DG1-03": {
+                  "CE_0051-03": "I10",
+                  "CE_0051-02": "ANKLE FRACTURE",
+                  "CE_0051-01": "S82"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "MSH": {
+        "MSH-10": "101104",
+        "MSH-11": {
+          "PT-01": "P"
+        },
+        "MSH-12": "2.3",
+        "MSH-03": {
+          "HD-01": "MESA_OP"
+        },
+        "MSH-04": {
+          "HD-01": "XYZ_HOSPITAL"
+        },
+        "MSH-05": {
+          "HD-01": "iFW"
+        },
+        "MSH-06": {
+          "HD-01": "ABC_RADIOLOGY"
+        },
+        "MSH-09": {
+          "CM_MSG-02": "O01",
+          "CM_MSG-01": "ORM"
+        }
+      },
+      "PATIENT": {
+        "PID": {
+          "PID-05": [
+            {
+              "XPN-05": "MR.",
+              "XPN-02": "JOHN",
+              "XPN-01": "APPLESEED",
+              "XPN-03": "A"
+            }
+          ],
+          "PID-16": "S",
+          "PID-03": [
+            {
+              "CX-01": "20891312",
+              "CX-05": "EPI"
+            }
+          ],
+          "PID-14": [
+            {
+              "XTN-01": "(608)123-5678"
+            }
+          ],
+          "PID-13": [
+            {
+              "XTN-01": "(608)123-4567"
+            }
+          ],
+          "PID-01": "1",
+          "PID-12": "DN",
+          "PID-11": [
+            {
+              "XAD-09": "DN",
+              "XAD-06": "US",
+              "XAD-04": "WI",
+              "XAD-05": "53505",
+              "XAD-03": "MADISON",
+              "XAD-01": "505 S. HAMILTON AVE"
+            }
+          ],
+          "PID-10": "AfrAm",
+          "PID-08": "M",
+          "PID-19": "123-45-7890",
+          "PID-07": {
+            "TS-01": "19661201"
+          },
+          "PID-18": {
+            "CX-01": " 11480003"
+          }
+        },
+        "PD1": {
+          "PD1-03": [
+            {
+              "XON-01": "FACILITY(EAST)",
+              "XON-03": "12345"
+            }
+          ],
+          "PD1-04": [
+            {
+              "XCN-04": "A",
+              "XCN-02": "MATTHEWS",
+              "XCN-03": "JAMES",
+              "XCN-01": "1173"
+            }
+          ]
+        },
+        "PATIENT_VISIT": {
+          "PV1": {
+            "PV1-03": {
+              "PL-04": {
+                "HD-01": "CARE HEALTH SYSTEMS"
+              }
+            },
+            "PV1-51": "V",
+            "PV1-19": {
+              "CX-01": "610613"
+            },
+            "PV1-06": {
+              
+            },
+            "PV1-07": [
+              {
+                "XCN-04": "A",
+                "XCN-02": "MATTHEWS",
+                "XCN-03": "JAMES",
+                "XCN-01": "1173"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "Id": "ORM_O01",
+  "Name": "ORM_O01"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<hl7:write doc:name="Write" doc:id="78f8ad86-d802-4561-a00a-5f85243557c2" config-ref="HL7_EDI_Config"/>
+		<ee:transform doc:name="to text" doc:id="18fc6a5d-cde0-4b76-ad87-040c3705b6be" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="23b170d6-1858-40fd-a6aa-b58b9a843ef2" message="hl7 in json format :#[payload]"/>
+	</flow>
+</mule>
